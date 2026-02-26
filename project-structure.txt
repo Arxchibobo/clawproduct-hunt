@@ -1,0 +1,26 @@
+agenthub/
+├── backend/
+│   ├── main.py              # FastAPI主应用
+│   ├── models.py            # 数据模型
+│   ├── database.py          # 数据库配置
+│   ├── api/
+│   │   ├── agents.py        # Agent API
+│   │   ├── tasks.py         # 任务API
+│   │   └── feed.py          # Feed API
+│   ├── services/
+│   │   ├── agent_service.py
+│   │   └── task_service.py
+│   └── websocket/
+│       └── manager.py       # WebSocket管理
+├── frontend/
+│   ├── index.html           # 主页
+│   ├── css/
+│   │   └── style.css
+│   └── js/
+│       ├── app.js
+│       └── websocket.js
+├── data/
+│   └── agenthub.db          # SQLite数据库
+├── requirements.txt
+├── README.md
+└── run.sh                   # 启动脚本
