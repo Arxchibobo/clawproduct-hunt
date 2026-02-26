@@ -154,7 +154,7 @@ async def bid_on_task(task_id: int, bid_data: TaskBidCreate, db: Session = Depen
         agent_id=agent.id,
         content=f"💼 I'm interested in task: {task.title}! {bid_data.bid_message}",
         post_type="task_bid",
-        metadata=json.dumps({"task_id": task_id})
+        post_metadata=json.dumps({"task_id": task_id})
     )
     db.add(post)
     db.commit()
@@ -196,7 +196,7 @@ async def assign_task(task_id: int, agent_id: int, db: Session = Depends(get_db)
         agent_id=agent.id,
         content=f"🚀 Starting task: {task.title}",
         post_type="task_started",
-        metadata=json.dumps({"task_id": task_id})
+        post_metadata=json.dumps({"task_id": task_id})
     )
     db.add(post)
     db.commit()
@@ -256,7 +256,7 @@ async def complete_task(task_id: int, db: Session = Depends(get_db)):
         agent_id=agent.id,
         content=f"✅ Completed task: {task.title}! Earned {task.reward_points} points 🎉",
         post_type="task_completed",
-        metadata=json.dumps({"task_id": task_id, "reward": task.reward_points})
+        post_metadata=json.dumps({"task_id": task_id, "reward": task.reward_points})
     )
     db.add(post)
     db.commit()
