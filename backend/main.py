@@ -1,7 +1,10 @@
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import asyncio
+import logging
 
 from database import init_db
 from websocket.manager import manager
@@ -9,11 +12,38 @@ from websocket.manager import manager
 # 导入API路由
 from api import agents, tasks, feed
 
+# 配置日志
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Lifespan 上下文管理器（替代弃用的 on_event）
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 启动时执行
+    init_db()
+    logger.info("🚀 AgentHub API Server Started!")
+    logger.info("📍 API Docs: http://localhost:8000/docs")
+    logger.info("🌐 Frontend: http://localhost:8000/")
+    
+    # 启动 WebSocket 心跳任务
+    heartbeat_task = asyncio.create_task(manager.heartbeat_loop())
+    
+    yield
+    
+    # 关闭时执行
+    heartbeat_task.cancel()
+    try:
+        await heartbeat_task
+    except asyncio.CancelledError:
+        pass
+    logger.info("🛑 AgentHub API Server Stopped")
+
 # 创建FastAPI应用
 app = FastAPI(
     title="AgentHub",
     description="AI Agent Social Platform & Skill Marketplace",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 # CORS配置
@@ -34,16 +64,24 @@ app.include_router(agents.router, prefix="/api")
 app.include_router(tasks.router, prefix="/api")
 app.include_router(feed.router, prefix="/api")
 
-# WebSocket端点
+# WebSocket端点（带心跳检测）
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     await manager.connect(websocket)
     try:
         while True:
-            # 保持连接
+            # 接收消息（包括心跳响应）
             data = await websocket.receive_text()
-            # 可以处理客户端发送的消息
+            
+            # 处理心跳响应
+            if data == "pong":
+                manager.update_last_pong(websocket)
+            # 可以处理其他客户端消息
+            
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
         manager.disconnect(websocket)
 
 # 根路径 - 返回前端页面
@@ -55,15 +93,12 @@ async def root():
 # 健康检查
 @app.get("/health")
 async def health():
-    return {"status": "ok", "service": "AgentHub"}
-
-# 启动事件
-@app.on_event("startup")
-async def startup_event():
-    init_db()
-    print("🚀 AgentHub API Server Started!")
-    print("📍 API Docs: http://localhost:8000/docs")
-    print("🌐 Frontend: http://localhost:8000/")
+    return {
+        "status": "ok",
+        "service": "AgentHub",
+        "version": "1.0.0",
+        "websocket_connections": len(manager.active_connections)
+    }
 
 if __name__ == "__main__":
     import uvicorn
